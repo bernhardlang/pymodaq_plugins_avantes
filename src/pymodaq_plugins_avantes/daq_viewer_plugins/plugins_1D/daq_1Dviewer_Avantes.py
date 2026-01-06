@@ -23,6 +23,14 @@ class DAQ_1DViewer_Avantes(DAQ_Viewer_base):
         {'title': 'Integration time:', 'name': 'integration_time',
          'type': 'float', 'min': 0.001, 'value': 0.1,
          'tip': 'Integration time in seconds'},
+        {'title': 'Dark Shutter line', 'name': 'dark_out', 'type':
+         'int', 'min': 1, 'max': 10 },
+        {'title': 'Invert Dark Shutter', 'name': 'invert_dark', 'type': 'bool',
+         'value': False },
+        {'title': 'Reference Shutter line', 'name': 'reference_out', 'type':
+         'int', 'min': 1, 'max': 10 },
+        {'title': 'Invert Reference Shutter', 'name': 'invert_reference',
+         'type': 'bool', 'value': False },
     ] + [ {'title': 'Output %d:' % (i + 1), 'name': 'output_%d' % (i + 1),
            'type': 'led_push', 'value': False,
            'tip': 'Logic level on putput %d' % (i + 1) } \
@@ -118,11 +126,27 @@ class DAQ_1DViewer_Avantes(DAQ_Viewer_base):
     def stop(self):
         self.controller.abort_measurement()
 
+    @property
     def has_dark_shutter(self):
-        return False
+        return True
 
+    @property
     def has_reference_shutter(self):
-        return False
+        return True
+
+    def set_dark_shutter(self, opened):
+        line = self.settings.child("dark_out").value()
+        invert = self.settings.child("invert_dark").value()
+        if invert:
+            opened = not opened
+        self.controller.set_digital_output(line, opened)
+
+    def set_reference_shutter(self, opened):
+        line = self.settings.child("reference_out").value()
+        invert = self.settings.child("invert_reference").value()
+        if invert:
+            opened = not opened
+        self.controller.set_digital_output(line, opened)
 
 if __name__ == '__main__':
     main(__file__)
