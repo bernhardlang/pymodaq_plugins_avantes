@@ -25,6 +25,10 @@ class DAQ_1DViewer_Avantes(DAQ_Viewer_base):
          'tip': 'Integration time in milliseconds'},
         { 'title': 'X-Axis in wavenumbers:', 'name': 'wavenumber',
           'type': 'bool', 'value': False },
+        { 'title': 'First Pixel', 'name': 'first_pixel', 'type': 'int',
+          'min': 0, 'max': 2046, 'value': 0 },
+        { 'title': 'Last Pixel', 'name': 'last_pixel', 'type': 'int',
+          'min': 1, 'max': 2047, 'value': 2047 },
     ] + [ {'title': 'Output %d:' % (i + 1), 'name': 'output_%d' % (i + 1),
            'type': 'led_push', 'value': False,
            'tip': 'Logic level on putput %d' % (i + 1) } \
@@ -33,6 +37,8 @@ class DAQ_1DViewer_Avantes(DAQ_Viewer_base):
 
     def ini_attributes(self):
         self.controller: self.controller_type = None
+        self.first_pixel = 0
+        self.last_pixel = 2048
         self.x_axis = None
 
     def commit_settings(self, param: Parameter):
@@ -44,6 +50,17 @@ class DAQ_1DViewer_Avantes(DAQ_Viewer_base):
             # functionallity.
             self.controller.set_digital_output(int(param.name()[7:]),
                                                param.value())
+        elif param.name() == 'wavenumber':
+            if self.controller is not None:
+                self.x_axis = self.get_x_axis()
+        elif param.name() == 'first_pixel':
+            self.first_pixel = param.value()
+            if self.controller is not None:
+                self.x_axis = self.get_x_axis()
+        elif param.name() == 'last_pixel':
+            self.last_pixel = param.value() + 1
+            if self.controller is not None:
+                self.x_axis = self.get_x_axis()
 
     def ini_detector(self, controller=None):
         """Detector communication initialization
@@ -72,11 +89,9 @@ class DAQ_1DViewer_Avantes(DAQ_Viewer_base):
                 info = "No Avantes Spectro detected"
                 return info, False
 
-            wavelengths = self.controller.wavelengths
-            self.x_axis = Axis(label='Wavelength', units='nm',
-                                data=wavelengths, index=0)
+            self.x_axis = self.get_x_axis()
             dfp = DataFromPlugins(name='Avantes',
-                                  data=[np.zeros(len(wavelengths))],
+                                  data=[np.zeros(len(self.x_axis))],
                                   dim='Data1D', axes=[self.x_axis],
                                   labels=['Avantes-Signal'])
             self.dte_signal_temp.emit(DataToExport(name='Avantes', data=[dfp]))
@@ -87,6 +102,14 @@ class DAQ_1DViewer_Avantes(DAQ_Viewer_base):
         initialized = True
 
         return info, initialized
+
+    def get_x_axis(self):
+        wavelengths = \
+            self.controller.wavelengths[self.first_pixel:self.last_pixel]
+        if self.settings['wavenumber']:
+            return Axis(label='Wavenumbers', units='cm1',
+                        data=1e7 / wavelengths, index=0)
+        return Axis(label='Wavelength', units='nm', data=wavelengths, index=0)
 
     def close(self):
         """Terminate the communication protocol"""
@@ -112,8 +135,9 @@ class DAQ_1DViewer_Avantes(DAQ_Viewer_base):
             DataRaw('timestamp', units='dimensionless',
                     data=np.array([timestamp]))
 
-        dfp = DataFromPlugins(name='Avantes', data=data, dim='Data1D',
-                              labels=['data'], axes=[self.x_axis])
+        dfp = DataFromPlugins(name='Avantes',
+                              data=data[self.first_pixel:self.last_pixel],
+                              dim='Data1D', labels=['data'], axes=[self.x_axis])
         self.dte_signal.emit(DataToExport(name='spectrum',
                                           data=[dfp, dwa0D_timestamp]))
  
