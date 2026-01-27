@@ -37,8 +37,6 @@ class DAQ_1DViewer_Avantes(DAQ_Viewer_base):
 
     def ini_attributes(self):
         self.controller: self.controller_type = None
-        self.first_pixel = 0
-        self.last_pixel = 2048
         self.x_axis = None
 
     def commit_settings(self, param: Parameter):
@@ -54,13 +52,11 @@ class DAQ_1DViewer_Avantes(DAQ_Viewer_base):
             if self.controller is not None:
                 self.x_axis = self.get_x_axis()
         elif param.name() == 'first_pixel':
-            self.first_pixel = param.value()
-            if self.controller is not None:
-                self.x_axis = self.get_x_axis()
+            self.controller.set_pixel_boundary(first_pixel=param.value())
+            self.x_axis = self.get_x_axis()
         elif param.name() == 'last_pixel':
-            self.last_pixel = param.value() + 1
-            if self.controller is not None:
-                self.x_axis = self.get_x_axis()
+            self.controller.set_pixel_boundary(last_pixel=param.value())
+            self.x_axis = self.get_x_axis()
 
     def ini_detector(self, controller=None):
         """Detector communication initialization
@@ -104,12 +100,13 @@ class DAQ_1DViewer_Avantes(DAQ_Viewer_base):
         return info, initialized
 
     def get_x_axis(self):
-        wavelengths = \
-            self.controller.wavelengths[self.first_pixel:self.last_pixel]
+        wavelengths = self.controller.wavelengths
         if self.settings['wavenumber']:
             return Axis(label='Wavenumbers', units='cm1',
                         data=1e7 / wavelengths, index=0)
-        return Axis(label='Wavelength', units='nm', data=wavelengths, index=0)
+        #return Axis(label='Wavelength', units=['nm'], data=wavelengths, index=0)
+        return Axis(label='Wavelength [nm]', data=wavelengths, index=0)
+        # workaround to prevent unit as knm
 
     def close(self):
         """Terminate the communication protocol"""
@@ -135,9 +132,8 @@ class DAQ_1DViewer_Avantes(DAQ_Viewer_base):
             DataRaw('timestamp', units='dimensionless',
                     data=np.array([timestamp]))
 
-        dfp = DataFromPlugins(name='Avantes',
-                              data=data[self.first_pixel:self.last_pixel],
-                              dim='Data1D', labels=['data'], axes=[self.x_axis])
+        dfp = DataFromPlugins(name='Avantes', data=data, dim='Data1D',
+                              labels=['data'], axes=[self.x_axis])
         self.dte_signal.emit(DataToExport(name='spectrum',
                                           data=[dfp, dwa0D_timestamp]))
  

@@ -43,6 +43,8 @@ class AvantesController:
         self._wavelengths = [0.0] * 4096
         self._spectraldata = [0.0] * 4096
         self._scan_count = 0
+        self._first_pixel = 0
+        self._last_pixel = 2048
         # shouldn't this go to the PyMoDAQ parameters?
 
     def open_communication(self) -> bool:
@@ -250,6 +252,12 @@ class AvantesController:
         """
         return avaspec.AVS_SetAnalogOut(self._devive_handle, pin_no, value)
 
+    def set_pixel_boundary(self, first_pixel=None, last_pixel=None):
+        if first_pixel is not None:
+            self._first_pixel = first_pixel
+        if last_pixel is not None:
+            self._last_pixel = last_pixel
+
     @property
     def wavelengths(self):
         """
@@ -262,7 +270,8 @@ class AvantesController:
         """
 
         full_scale = avaspec.AVS_GetLambda(self._device_handle)
-        return np.array_split(np.array(full_scale), 2)[0]
+        return np.array_split(np.array(full_scale), 2)[0]\
+            [self._first_pixel:self._last_pixel]
 
     def grab_spectrum(self):
         """
@@ -291,7 +300,7 @@ class AvantesController:
         result = np.array_split(full_spectrometer_y_values, 2)[0]
         self._scan_count += 1
         time.sleep(0.001)
-        return result,data[0]
+        return result[self._first_pixel:self._last_pixel],data[0]
 
     def abort_measurement(self):
         """
