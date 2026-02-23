@@ -20,22 +20,20 @@ class DAQ_1DViewer_Avantes(DAQ_Viewer_base):
     controller_type = AvantesController
 
     params = comon_parameters+[
-        {'title': 'Integration time:', 'name': 'integration_time',
-         'type': 'float', 'min': 0.001, 'value': 0.1,
-         'tip': 'Integration time in seconds'},
-        {'title': 'Dark Shutter line', 'name': 'dark_out', 'type':
-         'int', 'min': 1, 'max': 10 },
-        {'title': 'Invert Dark Shutter', 'name': 'invert_dark', 'type': 'bool',
-         'value': False },
-        {'title': 'Reference Shutter line', 'name': 'reference_out', 'type':
-         'int', 'min': 1, 'max': 10 },
-        {'title': 'Invert Reference Shutter', 'name': 'invert_reference',
-         'type': 'bool', 'value': False },
+        {'title': 'Integration time [ms]:', 'name': 'integration_time',
+         'type': 'float', 'min': 0.001, 'value': 500,
+         'tip': 'Integration time in milliseconds'},
+        { 'title': 'X-Axis in wavenumbers:', 'name': 'wavenumber',
+          'type': 'bool', 'value': False },
+        { 'title': 'First Pixel', 'name': 'first_pixel', 'type': 'int',
+          'min': 0, 'max': 2046, 'value': 0 },
+        { 'title': 'Last Pixel', 'name': 'last_pixel', 'type': 'int',
+          'min': 1, 'max': 2047, 'value': 2047 },
     ] + [ {'title': 'Output %d:' % (i + 1), 'name': 'output_%d' % (i + 1),
            'type': 'led_push', 'value': False,
            'tip': 'Logic level on putput %d' % (i + 1) } \
           for i in range(10)
-         ]
+    ]
 
     def ini_attributes(self):
         self.controller: self.controller_type = None
@@ -43,13 +41,22 @@ class DAQ_1DViewer_Avantes(DAQ_Viewer_base):
 
     def commit_settings(self, param: Parameter):
         if param.name() == "integration_time":
-            self.controller.set_integration_time(param.value() * 1000)
+            self.controller.set_integration_time(param.value())
         elif param.name()[:7] == 'output_':
             # Note: digital outputs are not really parameters. However and
             # for the time being, this seems to come closest to PyMoDAQ's
             # functionallity.
             self.controller.set_digital_output(int(param.name()[7:]),
                                                param.value())
+        elif param.name() == 'wavenumber':
+            if self.controller is not None:
+                self.x_axis = self.get_x_axis()
+        elif param.name() == 'first_pixel':
+            self.controller.set_pixel_boundary(first_pixel=param.value())
+            self.x_axis = self.get_x_axis()
+        elif param.name() == 'last_pixel':
+            self.controller.set_pixel_boundary(last_pixel=param.value())
+            self.x_axis = self.get_x_axis()
 
     def ini_detector(self, controller=None):
         """Detector communication initialization
@@ -78,11 +85,9 @@ class DAQ_1DViewer_Avantes(DAQ_Viewer_base):
                 info = "No Avantes Spectro detected"
                 return info, False
 
-            wavelengths = self.controller.wavelengths
-            self.x_axis = Axis(label='Wavelength', units='nm',
-                                data=wavelengths, index=0)
+            self.x_axis = self.get_x_axis()
             dfp = DataFromPlugins(name='Avantes',
-                                  data=[np.zeros(len(wavelengths))],
+                                  data=[np.zeros(len(self.x_axis))],
                                   dim='Data1D', axes=[self.x_axis],
                                   labels=['Avantes-Signal'])
             self.dte_signal_temp.emit(DataToExport(name='Avantes', data=[dfp]))
@@ -93,6 +98,15 @@ class DAQ_1DViewer_Avantes(DAQ_Viewer_base):
         initialized = True
 
         return info, initialized
+
+    def get_x_axis(self):
+        wavelengths = self.controller.wavelengths
+        if self.settings['wavenumber']:
+            return Axis(label='Wavenumbers', units='cm1',
+                        data=1e7 / wavelengths, index=0)
+        #return Axis(label='Wavelength', units=['nm'], data=wavelengths, index=0)
+        return Axis(label='Wavelength [nm]', data=wavelengths, index=0)
+        # workaround to prevent unit as knm
 
     def close(self):
         """Terminate the communication protocol"""
