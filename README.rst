@@ -75,14 +75,29 @@ Linux
 
   .. code-block::
 
-     SUBSYSTEM=="usb", ATTRS{idVendor}=="1992", ATTRS{idProduct}=="0669", MODE="0666"
+     SUBSYSTEM=="usb", ATTRS{idVendor}=="1992", ATTRS{idProduct}=="<pid>", MODE="0666"
 
-* Connect the spectrometer and run
+  where <pid> stands for the USB product ID of the device. It can ba found
+  by calling lsusb -v and looking for Avantes in the output. For instance, 0669
+  is the ID of the AvaSpec ULS2048CL, 0667 of the ASS216.
+
+* Run
 
   .. code-block::
 
     sudo udevadm control --reload-rules
-    sudo udevadm trigger
+
+   and connect the spectrometer. It should now be recognised. In case it
+   doesn't, carefully check the content of the udev rule file and reload it
+   using the above command. Issuing
+
+  .. code-block::
+
+     sudo udevadm trigger
+
+   forces the udev syatem to cycle through the initialisation process as
+   if the connected devices would have been physically disconnected and
+   reconnected again.
 
 
 Windows
@@ -94,7 +109,17 @@ Windows
 * The setup program will install and configure the device driver. Connect
   the device and check the device manager for an entry named
   "Avantes Spectrometers".
-  
+* Amongst other files, the installation has copied the library avaspecx64.dll
+  to your disk. Find the location and either add the corresponding path your
+  search path environment variable or copy the library to a folder where
+  python will find it.
+* A copy of that library is contained in this package. However, this ia not an
+  official distribution. Avantes Inc. may change its contents. Using the copy
+  contained here may therefore break other software delivered by Avantes Inc.
+* Keep in mind also that a copy of that library alone is not sufficient. The
+  device needs to be registered with the USB system. The setup program performs
+  this task.
+
 
 Continuation on any OS
 ++++++++++++++++++++++
